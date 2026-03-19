@@ -1,6 +1,6 @@
 FileName, CommitSha
-analytics-rules/medium-fortigate-cef-data-exfiltration.json,26676126201abdbe80e7cdf56125d2363b3f951a
 analytics-rules/high-fortigate-cef-brute-force-login.json,d84c7269220898e47c3f78828b47cec4dd1c6799
+analytics-rules/medium-fortigate-cef-data-exfiltration.json,26676126201abdbe80e7cdf56125d2363b3f951a
 analytics-rules/high-fortigate-cef-ips-critical-alert.json,04441e9b44379e9c10a54c39ae56e66f6847ed4a
 analytics-rules/medium-fortigate-cef-denied-traffic-spike.json,3bffaf4034710416c98ac65dd32a8a5dafce64e7
 
