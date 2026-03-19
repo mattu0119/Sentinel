@@ -1,0 +1,66 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "string"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "apiVersion": "2023-02-01-preview",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/', 'a1b2c3d4-1003-4000-8000-000000000003')]",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "Fortigate - 大量データ外部送信 (データ漏洩の疑い)",
+        "description": "内部ホストから外部への異常に大きなデータ転送を検出します。データ漏洩 (Data Exfiltration) の兆候を示す可能性があります。閾値は環境に応じて調整してください。",
+        "severity": "Medium",
+        "enabled": true,
+        "query": "let ThresholdBytes = 104857600; // 100 MB\nlet KnownInternalRanges = dynamic([\"10.\", \"172.16.\", \"172.17.\", \"172.18.\", \"172.19.\", \"172.20.\", \"172.21.\", \"172.22.\", \"172.23.\", \"172.24.\", \"172.25.\", \"172.26.\", \"172.27.\", \"172.28.\", \"172.29.\", \"172.30.\", \"172.31.\", \"192.168.\"]);\nCommonSecurityLog\n| where DeviceVendor == \"Fortinet\"\n| where DeviceProduct == \"Fortigate\"\n| where DeviceAction in (\"accept\", \"allow\", \"passthrough\")\n| where isnotempty(SentBytes)\n| extend IsInternalDest = iff(DestinationIP has_any (KnownInternalRanges), true, false)\n| where IsInternalDest == false\n| summarize\n    TotalSentBytes = sum(SentBytes),\n    TotalReceivedBytes = sum(ReceivedBytes),\n    SessionCount = count(),\n    DistinctDestIPs = dcount(DestinationIP),\n    TopDestinations = make_set(DestinationIP, 10),\n    TopPorts = make_set(DestinationPort, 10)\n    by SourceIP, DeviceName, bin(TimeGenerated, 1h)\n| where TotalSentBytes > ThresholdBytes\n| extend TotalSentMB = round(toreal(TotalSentBytes) / 1048576, 2)\n| extend TotalReceivedMB = round(toreal(TotalReceivedBytes) / 1048576, 2)\n| extend SentReceivedRatio = iff(TotalReceivedBytes > 0, round(toreal(TotalSentBytes) / toreal(TotalReceivedBytes), 2), toreal(999))\n| project\n    TimeGenerated,\n    SourceIP,\n    TotalSentMB,\n    TotalReceivedMB,\n    SentReceivedRatio,\n    SessionCount,\n    DistinctDestIPs,\n    TopDestinations,\n    TopPorts,\n    DeviceName",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT5H",
+        "suppressionEnabled": false,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "Selected",
+            "groupByEntities": [
+              "IP"
+            ],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "tactics": [
+          "Exfiltration"
+        ],
+        "techniques": [
+          "T1048"
+        ],
+        "entityMappings": [
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "SourceIP"
+              }
+            ]
+          }
+        ],
+        "customDetails": {
+          "TotalSentMB": "TotalSentMB",
+          "SentReceivedRatio": "SentReceivedRatio",
+          "TopDestinations": "TopDestinations"
+        }
+      }
+    }
+  ]
+}

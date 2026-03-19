@@ -1,0 +1,66 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "string"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "apiVersion": "2023-02-01-preview",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/', 'a1b2c3d4-1001-4000-8000-000000000001')]",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "Fortigate - ログイン ブルートフォース攻撃の検出",
+        "description": "Fortigate デバイスへの認証失敗が短時間に多数発生した場合にアラートを生成します。VPN ログインやファイアウォール管理画面へのブルートフォース攻撃の兆候を検出します。",
+        "severity": "High",
+        "enabled": true,
+        "query": "CommonSecurityLog\n| where DeviceVendor == \"Fortinet\"\n| where DeviceProduct == \"Fortigate\"\n| where Activity has_any (\"login\", \"authentication\", \"auth\")\n| where DeviceAction has_any (\"failure\", \"failed\", \"denied\", \"invalid\")\n| summarize\n    FailedAttempts = count(),\n    FirstAttempt = min(TimeGenerated),\n    LastAttempt = max(TimeGenerated),\n    TargetAccounts = make_set(DestinationUserName, 10),\n    TargetDevices = make_set(DeviceName, 5)\n    by SourceIP, bin(TimeGenerated, 1h)\n| where FailedAttempts >= 10\n| extend TimeDiffMinutes = datetime_diff('minute', LastAttempt, FirstAttempt)\n| project\n    TimeGenerated,\n    SourceIP,\n    FailedAttempts,\n    FirstAttempt,\n    LastAttempt,\n    TimeDiffMinutes,\n    TargetAccounts,\n    TargetDevices",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT5H",
+        "suppressionEnabled": false,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "Selected",
+            "groupByEntities": [
+              "IP"
+            ],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "tactics": [
+          "CredentialAccess",
+          "InitialAccess"
+        ],
+        "techniques": [
+          "T1110"
+        ],
+        "entityMappings": [
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "SourceIP"
+              }
+            ]
+          }
+        ],
+        "customDetails": {
+          "FailedAttempts": "FailedAttempts",
+          "TargetAccounts": "TargetAccounts"
+        }
+      }
+    }
+  ]
+}

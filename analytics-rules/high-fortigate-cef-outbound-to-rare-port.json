@@ -1,0 +1,68 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "string"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "apiVersion": "2023-02-01-preview",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/', 'a1b2c3d4-1002-4000-8000-000000000002')]",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "Fortigate - 不審なアウトバウンド通信 (レアポート)",
+        "description": "内部ホストから一般的でないポートへのアウトバウンド通信を検出します。C2 (Command & Control) 通信やバックドア通信の兆候を示す可能性があります。",
+        "severity": "High",
+        "enabled": true,
+        "query": "let CommonPorts = dynamic([80, 443, 53, 25, 110, 143, 993, 995, 587, 465, 22, 21, 123, 389, 636, 88, 445, 3389, 8080, 8443]);\nlet KnownInternalRanges = dynamic([\"10.\", \"172.16.\", \"172.17.\", \"172.18.\", \"172.19.\", \"172.20.\", \"172.21.\", \"172.22.\", \"172.23.\", \"172.24.\", \"172.25.\", \"172.26.\", \"172.27.\", \"172.28.\", \"172.29.\", \"172.30.\", \"172.31.\", \"192.168.\"]);\nCommonSecurityLog\n| where DeviceVendor == \"Fortinet\"\n| where DeviceProduct == \"Fortigate\"\n| where DeviceAction == \"accept\" or DeviceAction == \"allow\" or DeviceAction == \"passthrough\"\n| where isnotempty(DestinationPort)\n| where DestinationPort !in (CommonPorts)\n| where DestinationPort >= 1\n| extend IsInternalDest = iff(DestinationIP has_any (KnownInternalRanges), true, false)\n| where IsInternalDest == false\n| summarize\n    ConnectionCount = count(),\n    DistinctDestIPs = dcount(DestinationIP),\n    DestinationIPs = make_set(DestinationIP, 10),\n    SentBytesTotal = sum(SentBytes),\n    FirstSeen = min(TimeGenerated),\n    LastSeen = max(TimeGenerated)\n    by SourceIP, DestinationPort, DeviceName, bin(TimeGenerated, 1h)\n| where ConnectionCount >= 3\n| project\n    TimeGenerated,\n    SourceIP,\n    DestinationPort,\n    ConnectionCount,\n    DistinctDestIPs,\n    DestinationIPs,\n    SentBytesTotal,\n    DeviceName,\n    FirstSeen,\n    LastSeen",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT5H",
+        "suppressionEnabled": false,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "Selected",
+            "groupByEntities": [
+              "IP"
+            ],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "tactics": [
+          "CommandAndControl",
+          "Exfiltration"
+        ],
+        "techniques": [
+          "T1571",
+          "T1065"
+        ],
+        "entityMappings": [
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "SourceIP"
+              }
+            ]
+          }
+        ],
+        "customDetails": {
+          "DestinationPort": "DestinationPort",
+          "ConnectionCount": "ConnectionCount",
+          "DestinationIPs": "DestinationIPs"
+        }
+      }
+    }
+  ]
+}

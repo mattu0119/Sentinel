@@ -1,0 +1,77 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "string"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "apiVersion": "2023-02-01-preview",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/', 'a1b2c3d4-1004-4000-8000-000000000004')]",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "Fortigate - IPS 重大シグネチャ検出",
+        "description": "Fortigate IPS (Intrusion Prevention System) が重大度の高い攻撃シグネチャを検出した場合にアラートを生成します。既知の脆弱性攻撃やマルウェア通信を検出します。",
+        "severity": "High",
+        "enabled": true,
+        "query": "CommonSecurityLog\n| where DeviceVendor == \"Fortinet\"\n| where DeviceProduct == \"Fortigate\"\n| where Activity has_any (\"utm:ips\", \"ips\", \"anomaly\", \"signature\")\n| where LogSeverity in (\"9\", \"10\", \"high\", \"critical\")\n    or DeviceEventClassID has_any (\"0419\", \"0420\", \"16384\", \"16385\")\n| project\n    TimeGenerated,\n    SourceIP,\n    DestinationIP,\n    DestinationPort,\n    Protocol = ApplicationProtocol,\n    Activity,\n    Message,\n    DeviceAction,\n    LogSeverity,\n    DeviceEventClassID,\n    DeviceName,\n    AdditionalExtensions\n| extend AttackName = extract(@\"attack=([^;]+)\", 1, AdditionalExtensions)\n| extend Reference = extract(@\"ref=([^;]+)\", 1, AdditionalExtensions)\n| project\n    TimeGenerated,\n    SourceIP,\n    DestinationIP,\n    DestinationPort,\n    Protocol,\n    AttackName,\n    Activity,\n    Message,\n    DeviceAction,\n    LogSeverity,\n    DeviceName,\n    Reference",
+        "queryFrequency": "PT5M",
+        "queryPeriod": "PT5M",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": false,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT1H",
+            "matchingMethod": "Selected",
+            "groupByEntities": [
+              "IP"
+            ],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "tactics": [
+          "InitialAccess",
+          "Execution",
+          "LateralMovement"
+        ],
+        "techniques": [
+          "T1190",
+          "T1203"
+        ],
+        "entityMappings": [
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "SourceIP"
+              }
+            ]
+          },
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "DestinationIP"
+              }
+            ]
+          }
+        ],
+        "customDetails": {
+          "AttackName": "AttackName",
+          "LogSeverity": "LogSeverity"
+        }
+      }
+    }
+  ]
+}

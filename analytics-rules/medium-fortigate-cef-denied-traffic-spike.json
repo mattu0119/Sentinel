@@ -1,0 +1,68 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "string"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "apiVersion": "2023-02-01-preview",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/', 'a1b2c3d4-1005-4000-8000-000000000005')]",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "Fortigate - 単一ソースからの拒否トラフィック急増",
+        "description": "単一の送信元 IP から大量の拒否トラフィックが発生した場合にアラートを生成します。ポートスキャン、ネットワーク偵察、またはワーム活動の兆候を示す可能性があります。",
+        "severity": "Medium",
+        "enabled": true,
+        "query": "CommonSecurityLog\n| where DeviceVendor == \"Fortinet\"\n| where DeviceProduct == \"Fortigate\"\n| where DeviceAction has_any (\"deny\", \"drop\", \"blocked\", \"reject\")\n| summarize\n    DeniedCount = count(),\n    DistinctDestIPs = dcount(DestinationIP),\n    DistinctDestPorts = dcount(DestinationPort),\n    TopDestPorts = make_set(DestinationPort, 20),\n    TopDestIPs = make_set(DestinationIP, 10),\n    FirstEvent = min(TimeGenerated),\n    LastEvent = max(TimeGenerated)\n    by SourceIP, DeviceName, bin(TimeGenerated, 1h)\n| where DeniedCount >= 100\n| extend IsScanLikely = iff(DistinctDestPorts > 10 or DistinctDestIPs > 10, true, false)\n| project\n    TimeGenerated,\n    SourceIP,\n    DeniedCount,\n    DistinctDestIPs,\n    DistinctDestPorts,\n    IsScanLikely,\n    TopDestPorts,\n    TopDestIPs,\n    DeviceName,\n    FirstEvent,\n    LastEvent",
+        "queryFrequency": "PT1H",
+        "queryPeriod": "PT1H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT5H",
+        "suppressionEnabled": false,
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT5H",
+            "matchingMethod": "Selected",
+            "groupByEntities": [
+              "IP"
+            ],
+            "groupByAlertDetails": [],
+            "groupByCustomDetails": []
+          }
+        },
+        "tactics": [
+          "Discovery",
+          "Reconnaissance"
+        ],
+        "techniques": [
+          "T1046",
+          "T1595"
+        ],
+        "entityMappings": [
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "SourceIP"
+              }
+            ]
+          }
+        ],
+        "customDetails": {
+          "DeniedCount": "DeniedCount",
+          "DistinctDestPorts": "DistinctDestPorts",
+          "IsScanLikely": "IsScanLikely"
+        }
+      }
+    }
+  ]
+}
