@@ -1,1 +1,1 @@
-# Sentinel
+# Sentinel コンテント管理レポジトリ
