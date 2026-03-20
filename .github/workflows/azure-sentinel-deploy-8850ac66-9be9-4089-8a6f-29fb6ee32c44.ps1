@@ -145,6 +145,7 @@ function PushCsvToRepo() {
     } else {
         git fetch > $null
         git checkout $newResourceBranch
+        git pull origin $newResourceBranch
     }
 
     Write-Output $content > $relativeCsvPath
