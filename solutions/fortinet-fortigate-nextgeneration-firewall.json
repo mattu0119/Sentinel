@@ -1,0 +1,23 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "workspace": {
+            "type": "string"
+        }
+    },
+    "resources": [
+        {
+            "type": "Microsoft.OperationalInsights/workspaces/providers/contentPackages",
+            "apiVersion": "2023-11-01",
+            "name": "[concat(parameters('workspace'), '/Microsoft.SecurityInsights/azuresentinel.azure-sentinel-solution-fortinetfortinextgenerationfirewall')]",
+            "properties": {
+                "contentId": "azuresentinel.azure-sentinel-solution-fortinetfortinextgenerationfirewall",
+                "contentKind": "Solution",
+                "contentProductId": "azuresentinel.azure-sentinel-solution-fortinetfortinextgenerationfirewall-sl",
+                "displayName": "Fortinet FortiGate Next-Generation Firewall",
+                "version": "3.0.2"
+            }
+        }
+    ]
+}
