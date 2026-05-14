@@ -1,0 +1,65 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "string"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "apiVersion": "2023-02-01-preview",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/', '9b7de22f-0c7b-4fbf-a65b-3f71e9119a8b')]",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "Cross Workspace Test - sentinel-eus2 and spoke-sentinel1 data present",
+        "description": "テスト目的の分析ルールです。sentinel-eus2 から spoke-sentinel1 をクロスワークスペース参照し、両ワークスペースに直近 24 時間の Usage データが存在する場合にアラートとインシデントを生成します。検証完了後は無効化してください。",
+        "severity": "Low",
+        "enabled": true,
+        "query": "let Lookback = 24h;\nlet WorkspaceUsage =\nunion isfuzzy=true\n(\n    Usage\n    | where TimeGenerated > ago(Lookback)\n    | summarize IngestedMB = round(sum(Quantity), 3), UsageRecords = count(), LastSeen = max(TimeGenerated) by DataType\n    | extend SourceWorkspace = 'sentinel-eus2'\n),\n(\n    workspace('1f1f7c40-4bb1-454b-a124-c104d400069b').Usage\n    | where TimeGenerated > ago(Lookback)\n    | summarize IngestedMB = round(sum(Quantity), 3), UsageRecords = count(), LastSeen = max(TimeGenerated) by DataType\n    | extend SourceWorkspace = 'spoke-sentinel1'\n);\nWorkspaceUsage\n| summarize Workspaces = make_set(SourceWorkspace), WorkspaceCount = dcount(SourceWorkspace), DataTypes = make_set(DataType, 50), TotalIngestedMB = round(sum(IngestedMB), 3), TotalUsageRecords = sum(UsageRecords), LastSeen = max(LastSeen)\n| where WorkspaceCount >= 2\n| extend TimeGenerated = LastSeen\n| extend TestScenario = 'Cross workspace query and incident creation validation', HubWorkspace = 'sentinel-eus2', SpokeWorkspaceName = 'spoke-sentinel1', WorkspacesObserved = strcat_array(Workspaces, ','), DataTypeSample = tostring(DataTypes)\n| project TimeGenerated, TestScenario, HubWorkspace, SpokeWorkspaceName, WorkspacesObserved, WorkspaceCount, TotalIngestedMB, TotalUsageRecords, DataTypeSample, LastSeen",
+        "queryFrequency": "PT5M",
+        "queryPeriod": "PT24H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": true,
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT1H",
+            "matchingMethod": "Selected",
+            "groupByEntities": [],
+            "groupByAlertDetails": [
+              "DisplayName"
+            ],
+            "groupByCustomDetails": [
+              "TestScenario"
+            ]
+          }
+        },
+        "alertDetailsOverride": {
+          "alertDisplayNameFormat": "Cross workspace test fired: sentinel-eus2 and spoke-sentinel1",
+          "alertDescriptionFormat": "Cross workspace Usage data was found in both workspaces. Total MB: {{TotalIngestedMB}}, records: {{TotalUsageRecords}}."
+        },
+        "tactics": [],
+        "techniques": [],
+        "customDetails": {
+          "TestScenario": "TestScenario",
+          "HubWorkspace": "HubWorkspace",
+          "SpokeWorkspace": "SpokeWorkspaceName",
+          "WorkspacesObserved": "WorkspacesObserved",
+          "WorkspaceCount": "WorkspaceCount",
+          "TotalIngestedMB": "TotalIngestedMB",
+          "TotalUsageRecords": "TotalUsageRecords",
+          "DataTypeSample": "DataTypeSample"
+        }
+      }
+    }
+  ]
+}

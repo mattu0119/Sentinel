@@ -18,6 +18,15 @@ Fortigate の CEF ログ (`CommonSecurityLog`) から不審な通信を検出す
 | `medium-fortigate-cef-data-exfiltration.json` | Medium | 外部への大量データ送信 (100 MB 超/時間) | 1 時間 | T1048 |
 | `medium-fortigate-cef-denied-traffic-spike.json` | Medium | 単一 IP からの拒否トラフィック急増 (ポートスキャン/偵察) | 1 時間 | T1046, T1595 |
 
+## クロスワークスペース テストルール
+
+sentinel-eus2 に作成し、spoke-sentinel1 をクロスワークスペース参照するテスト用ルールです。
+
+| ファイル | 重大度 | 検出内容 | 実行間隔 | 用途 |
+|---------|--------|---------|---------|------|
+| `low-cross-workspace-aad-noninteractive-signin-test.json` | Low | sentinel-eus2 と spoke-sentinel1 の両方に直近 24 時間の AADNonInteractiveUserSignInLogs がある場合にアラート/インシデントを生成 | 5 分 | クロスワークスペースクエリ、アカウント/IP エンティティ、インシデント生成の疎通確認 |
+| `low-cross-workspace-usage-test-incident.json` | Low | sentinel-eus2 と spoke-sentinel1 の両方に直近 24 時間の Usage データがある場合にアラート/インシデントを生成 | 5 分 | クロスワークスペースクエリとインシデント生成の疎通確認 |
+
 ## 展開方法
 
 ### Sentinel Repositories (推奨)
@@ -52,3 +61,5 @@ New-AzResourceGroupDeployment `
 | data-exfiltration | `ThresholdBytes` | 100 MB | 送信データ量の閾値 |
 | denied-traffic-spike | `DeniedCount` | 100 回 | 拒否トラフィックの閾値 |
 | outbound-to-rare-port | `CommonPorts` | 20 ポート | 除外する既知ポートのリスト |
+| cross-workspace-aad-noninteractive-signin-test | `Lookback` | 24 時間 | 両ワークスペースの AAD 非対話サインイン存在確認期間 |
+| cross-workspace-usage-test-incident | `Lookback` | 24 時間 | 両ワークスペースの Usage データ存在確認期間 |

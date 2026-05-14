@@ -1,0 +1,99 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspace": {
+      "type": "string"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+      "apiVersion": "2023-02-01-preview",
+      "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/', '7f47f37d-310c-4c3b-ae09-a8bf9a4e7c0b')]",
+      "kind": "Scheduled",
+      "properties": {
+        "displayName": "Cross Workspace Test - AAD non-interactive sign-ins observed",
+        "description": "テスト目的の分析ルールです。sentinel-eus2 から spoke-sentinel1 をクロスワークスペース参照し、両ワークスペースに直近 24 時間の AADNonInteractiveUserSignInLogs が存在する場合にアラートとインシデントを生成します。検証完了後は無効化してください。",
+        "severity": "Low",
+        "enabled": true,
+        "query": "let Lookback = 24h;\nlet SignIns =\nunion isfuzzy=true\n(\n    AADNonInteractiveUserSignInLogs\n    | where TimeGenerated > ago(Lookback)\n    | where isnotempty(UserPrincipalName)\n    | extend SourceWorkspace = 'sentinel-eus2'\n),\n(\n    workspace('1f1f7c40-4bb1-454b-a124-c104d400069b').AADNonInteractiveUserSignInLogs\n    | where TimeGenerated > ago(Lookback)\n    | where isnotempty(UserPrincipalName)\n    | extend SourceWorkspace = 'spoke-sentinel1'\n);\nSignIns\n| summarize WorkspaceCount = dcount(SourceWorkspace), Workspaces = make_set(SourceWorkspace), SignInCount = count(), Users = make_set(UserPrincipalName, 10), Apps = make_set(AppDisplayName, 10), IPAddresses = make_set(IPAddress, 10), ResultTypes = make_set(tostring(ResultType), 10), ConditionalAccessStatuses = make_set(tostring(ConditionalAccessStatus), 10), FirstSeen = min(TimeGenerated), LastSeen = max(TimeGenerated), SampleUserPrincipalName = any(UserPrincipalName), SampleIPAddress = any(IPAddress), SampleAppDisplayName = any(AppDisplayName), SampleResultType = any(tostring(ResultType))\n| where WorkspaceCount >= 2 and SignInCount >= 2\n| extend TimeGenerated = LastSeen\n| extend TestScenario = 'Cross workspace AAD non-interactive sign-in validation', HubWorkspace = 'sentinel-eus2', SpokeWorkspaceName = 'spoke-sentinel1', WorkspacesObserved = strcat_array(Workspaces, ','), AccountName = tostring(split(SampleUserPrincipalName, '@')[0]), UPNSuffix = tostring(split(SampleUserPrincipalName, '@')[1]), UserSample = tostring(Users), AppSample = tostring(Apps), IPSample = tostring(IPAddresses), ResultTypeSample = tostring(ResultTypes), ConditionalAccessStatusSample = tostring(ConditionalAccessStatuses)\n| project TimeGenerated, TestScenario, HubWorkspace, SpokeWorkspaceName, WorkspacesObserved, WorkspaceCount, SignInCount, UserSample, SampleUserPrincipalName, AccountName, UPNSuffix, SampleIPAddress, SampleAppDisplayName, SampleResultType, AppSample, IPSample, ResultTypeSample, ConditionalAccessStatusSample, FirstSeen, LastSeen",
+        "queryFrequency": "PT5M",
+        "queryPeriod": "PT24H",
+        "triggerOperator": "GreaterThan",
+        "triggerThreshold": 0,
+        "suppressionDuration": "PT1H",
+        "suppressionEnabled": true,
+        "eventGroupingSettings": {
+          "aggregationKind": "SingleAlert"
+        },
+        "incidentConfiguration": {
+          "createIncident": true,
+          "groupingConfiguration": {
+            "enabled": true,
+            "reopenClosedIncident": false,
+            "lookbackDuration": "PT1H",
+            "matchingMethod": "Selected",
+            "groupByEntities": [
+              "Account",
+              "IP"
+            ],
+            "groupByAlertDetails": [
+              "DisplayName"
+            ],
+            "groupByCustomDetails": [
+              "TestScenario"
+            ]
+          }
+        },
+        "alertDetailsOverride": {
+          "alertDisplayNameFormat": "Cross workspace AAD non-interactive sign-ins: {{SampleUserPrincipalName}}",
+          "alertDescriptionFormat": "AAD non-interactive sign-in data was found in both sentinel-eus2 and spoke-sentinel1. Sign-in count: {{SignInCount}}, sample app: {{SampleAppDisplayName}}, sample IP: {{SampleIPAddress}}."
+        },
+        "tactics": [],
+        "techniques": [],
+        "entityMappings": [
+          {
+            "entityType": "Account",
+            "fieldMappings": [
+              {
+                "identifier": "FullName",
+                "columnName": "SampleUserPrincipalName"
+              },
+              {
+                "identifier": "Name",
+                "columnName": "AccountName"
+              },
+              {
+                "identifier": "UPNSuffix",
+                "columnName": "UPNSuffix"
+              }
+            ]
+          },
+          {
+            "entityType": "IP",
+            "fieldMappings": [
+              {
+                "identifier": "Address",
+                "columnName": "SampleIPAddress"
+              }
+            ]
+          }
+        ],
+        "customDetails": {
+          "TestScenario": "TestScenario",
+          "HubWorkspace": "HubWorkspace",
+          "SpokeWorkspace": "SpokeWorkspaceName",
+          "WorkspacesObserved": "WorkspacesObserved",
+          "WorkspaceCount": "WorkspaceCount",
+          "SignInCount": "SignInCount",
+          "UserSample": "UserSample",
+          "AppSample": "AppSample",
+          "IPSample": "IPSample",
+          "ResultTypeSample": "ResultTypeSample",
+          "CAStatusSample": "ConditionalAccessStatusSample"
+        }
+      }
+    }
+  ]
+}
