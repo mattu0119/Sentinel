@@ -1,7 +1,9 @@
 FileName, CommitSha
-analytics-rules/medium-fortigate-cef-denied-traffic-spike.json,3bffaf4034710416c98ac65dd32a8a5dafce64e7
 workbooks/Workbook-FortigateCEF.json,737223745bf5be207b5e463a66657c62cf566857
+analytics-rules/low-cross-workspace-aad-noninteractive-signin-test.json,a4b7f0e8118cdf303694d518e88e234d33377f60
 analytics-rules/high-fortigate-cef-brute-force-login.json,d84c7269220898e47c3f78828b47cec4dd1c6799
+analytics-rules/low-cross-workspace-usage-test-incident.json,af154a2954858ebdb38dc2b60538c5e7322a09e8
+analytics-rules/medium-fortigate-cef-denied-traffic-spike.json,3bffaf4034710416c98ac65dd32a8a5dafce64e7
 analytics-rules/high-fortigate-cef-ips-critical-alert.json,04441e9b44379e9c10a54c39ae56e66f6847ed4a
 analytics-rules/medium-fortigate-cef-data-exfiltration.json,26676126201abdbe80e7cdf56125d2363b3f951a
 
